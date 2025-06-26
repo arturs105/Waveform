@@ -1,4 +1,4 @@
-struct SampleData {
+public struct SampleData: Equatable {
     var min: Float
     var max: Float
     

@@ -8,9 +8,15 @@ public typealias SampleRange = Range<Int>
 /// An interactive waveform generated from an `AVAudioFile`.
 public struct Waveform: View {
     @ObservedObject var generator: WaveformGenerator
-    
-    @State private var zoomGestureValue: CGFloat = 1
-    @State private var panGestureValue: CGFloat = 0
+
+    /// Gets called when user drags a single recording to update time alignment
+    let onAlignmentOffsetChanged: (Int) -> Void
+
+    @Binding var zoomValue: CGFloat
+    @Binding var panValue: CGFloat
+    @Binding var alignmentPanValue: CGFloat
+//    @State private var zoomGestureValue: CGFloat = 1
+//    @State private var panGestureValue: CGFloat = 0
     @Binding var selectedSamples: SampleRange
     @Binding var selectionEnabled: Bool
     
@@ -19,10 +25,22 @@ public struct Waveform: View {
     ///   - generator: The object that will supply waveform data.
     ///   - selectedSamples: A binding to a `SampleRange` to update with the selection chosen in the waveform.
     ///   - selectionEnabled: A binding to enable/disable selection on the waveform
-    public init(generator: WaveformGenerator, selectedSamples: Binding<SampleRange>, selectionEnabled: Binding<Bool>) {
+    public init(
+        generator: WaveformGenerator,
+        selectedSamples: Binding<SampleRange>,
+        selectionEnabled: Binding<Bool>,
+        zoomValue: Binding<CGFloat>,
+        panValue: Binding<CGFloat>,
+        alignmentPanValue: Binding<CGFloat>,
+        onAlignmentOffsetChanged: @escaping (Int) -> Void
+    ) {
         self.generator = generator
         self._selectedSamples = selectedSamples
         self._selectionEnabled = selectionEnabled
+        self._zoomValue = zoomValue
+        self._panValue = panValue
+        self._alignmentPanValue = alignmentPanValue
+        self.onAlignmentOffsetChanged = onAlignmentOffsetChanged
     }
     
     public var body: some View {
@@ -50,40 +68,22 @@ public struct Waveform: View {
                     .foregroundColor(.accentColor)
             }
         }
-        .gesture(SimultaneousGesture(zoom, pan))
+//        .gesture(SimultaneousGesture(zoom, pan))
+//        .gesture(pan)
         .environmentObject(generator)
         .onPreferenceChange(SizeKey.self) {
             guard generator.width != $0.width else { return }
             generator.width = $0.width
         }
-    }
-    
-    var zoom: some Gesture {
-        MagnificationGesture()
-            .onChanged {
-                let zoomAmount = $0 / zoomGestureValue
-                zoom(amount: zoomAmount)
-                zoomGestureValue = $0
-            }
-            .onEnded {
-                let zoomAmount = $0 / zoomGestureValue
-                zoom(amount: zoomAmount)
-                zoomGestureValue = 1
-            }
-    }
-    
-    var pan: some Gesture {
-        DragGesture()
-            .onChanged {
-                let panAmount = $0.translation.width - panGestureValue
-                pan(offset: -panAmount)
-                panGestureValue = $0.translation.width
-            }
-            .onEnded {
-                let panAmount = $0.translation.width - panGestureValue
-                pan(offset: -panAmount)
-                panGestureValue = 0
-            }
+        .onChange(of: zoomValue) { oldValue, newValue in
+            zoom(amount: newValue)
+        }
+        .onChange(of: panValue) { oldValue, newValue in
+            pan(offset: newValue)
+        }
+        .onChange(of: alignmentPanValue) { oldValue, newValue in
+            pan(offset: newValue, updateAlignmentOffset: true)
+        }
     }
     
     func zoom(amount: CGFloat) {
@@ -95,7 +95,7 @@ public struct Waveform: View {
         generator.renderSamples = renderStartSample..<renderEndSample
     }
     
-    func pan(offset: CGFloat) {
+    func pan(offset: CGFloat, updateAlignmentOffset: Bool = false) {
         let count = generator.renderSamples.count
         var startSample = generator.sample(generator.renderSamples.lowerBound, with: offset)
         var endSample = startSample + count
@@ -107,7 +107,15 @@ public struct Waveform: View {
             endSample = Int(generator.audioBuffer.frameLength)
             startSample = endSample - generator.renderSamples.count
         }
-        
+
+        if updateAlignmentOffset {
+            let difference = generator.renderSamples.lowerBound - startSample
+            alignmentOffset += difference
+            onAlignmentOffsetChanged(alignmentOffset)
+        }
+
         generator.renderSamples = startSample..<endSample
     }
+
+    @State var alignmentOffset: Int = 0
 }

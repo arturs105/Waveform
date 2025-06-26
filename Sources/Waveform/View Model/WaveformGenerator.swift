@@ -19,7 +19,7 @@ public class WaveformGenerator: ObservableObject {
     var width: CGFloat = 0 {     // would publishing this be bad?
         didSet { refreshData() }
     }
-    
+
     /// Creates an instance from an `AVAudioFile`.
     /// - Parameter audioFile: The audio file to generate waveform data from.
     public init?(audioFile: AVAudioFile) {
@@ -43,6 +43,8 @@ public class WaveformGenerator: ObservableObject {
         generateTask = GenerateTask(audioBuffer: audioBuffer)
         
         generateTask?.resume(width: width, renderSamples: renderSamples) { sampleData in
+//            let emptySample = SampleData(min: 0, max: 0)
+//            let prependedSamples = [SampleData](repeating: emptySample, count: <#T##Int#>)
             self.sampleData = sampleData
         }
     }
