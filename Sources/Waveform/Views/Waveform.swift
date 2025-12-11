@@ -9,22 +9,19 @@ public typealias SampleRange = Range<Int>
 public struct Waveform: View {
     @ObservedObject var generator: WaveformGenerator
 
-    /// Gets called when user drags a single recording to update time alignment
-    let onAlignmentOffsetChanged: (Int) -> Void
-
     @Binding var zoomValue: CGFloat
     @Binding var panValue: CGFloat
     @Binding var alignmentPanValue: CGFloat
-//    @State private var zoomGestureValue: CGFloat = 1
-//    @State private var panGestureValue: CGFloat = 0
+    @Binding var alignmentSampleOffset: Int
     @Binding var selectedSamples: SampleRange
     @Binding var selectionEnabled: Bool
-    
+
     /// Creates an instance powered by the supplied generator.
     /// - Parameters:
     ///   - generator: The object that will supply waveform data.
     ///   - selectedSamples: A binding to a `SampleRange` to update with the selection chosen in the waveform.
     ///   - selectionEnabled: A binding to enable/disable selection on the waveform
+    ///   - alignmentSampleOffset: Binding to track accumulated alignment offset in samples
     public init(
         generator: WaveformGenerator,
         selectedSamples: Binding<SampleRange>,
@@ -32,7 +29,7 @@ public struct Waveform: View {
         zoomValue: Binding<CGFloat>,
         panValue: Binding<CGFloat>,
         alignmentPanValue: Binding<CGFloat>,
-        onAlignmentOffsetChanged: @escaping (Int) -> Void
+        alignmentSampleOffset: Binding<Int>
     ) {
         self.generator = generator
         self._selectedSamples = selectedSamples
@@ -40,7 +37,7 @@ public struct Waveform: View {
         self._zoomValue = zoomValue
         self._panValue = panValue
         self._alignmentPanValue = alignmentPanValue
-        self.onAlignmentOffsetChanged = onAlignmentOffsetChanged
+        self._alignmentSampleOffset = alignmentSampleOffset
     }
     
     public var body: some View {
@@ -91,31 +88,28 @@ public struct Waveform: View {
         let newCount = CGFloat(count) / amount
         let delta = (count - Int(newCount)) / 2
         let renderStartSample = max(0, generator.renderSamples.lowerBound + delta)
-        let renderEndSample = min(generator.renderSamples.upperBound - delta, Int(generator.audioBuffer.frameLength))
+        let renderEndSample = min(generator.renderSamples.upperBound - delta, generator.totalVirtualSamples)
         generator.renderSamples = renderStartSample..<renderEndSample
     }
-    
+
     func pan(offset: CGFloat, updateAlignmentOffset: Bool = false) {
         let count = generator.renderSamples.count
         var startSample = generator.sample(generator.renderSamples.lowerBound, with: offset)
         var endSample = startSample + count
-        
+
         if startSample < 0 {
             startSample = 0
             endSample = generator.renderSamples.count
-        } else if endSample > Int(generator.audioBuffer.frameLength) {
-            endSample = Int(generator.audioBuffer.frameLength)
+        } else if endSample > generator.totalVirtualSamples {
+            endSample = generator.totalVirtualSamples
             startSample = endSample - generator.renderSamples.count
         }
 
         if updateAlignmentOffset {
             let difference = generator.renderSamples.lowerBound - startSample
-            alignmentOffset += difference
-            onAlignmentOffsetChanged(alignmentOffset)
+            alignmentSampleOffset += difference
         }
 
         generator.renderSamples = startSample..<endSample
     }
-
-    @State var alignmentOffset: Int = 0
 }

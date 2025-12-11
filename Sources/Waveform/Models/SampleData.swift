@@ -1,8 +1,8 @@
 public struct SampleData: Equatable {
-    var min: Float
-    var max: Float
+    public var min: Float
+    public var max: Float
     
-    static var zero: SampleData {
+    public static var zero: SampleData {
         SampleData(min: 0, max: 0)
     }
 }
