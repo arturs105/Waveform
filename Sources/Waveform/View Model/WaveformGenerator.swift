@@ -25,6 +25,18 @@ public class WaveformGenerator: ObservableObject {
         globalTotalSamples ?? totalVirtualSamples
     }
 
+    /// Normalized visible range start (0-1)
+    public var visibleRangeStart: CGFloat {
+        guard effectiveTotalSamples > 0 else { return 0 }
+        return CGFloat(renderSamples.lowerBound) / CGFloat(effectiveTotalSamples)
+    }
+
+    /// Normalized visible range end (0-1)
+    public var visibleRangeEnd: CGFloat {
+        guard effectiveTotalSamples > 0 else { return 1 }
+        return CGFloat(renderSamples.upperBound) / CGFloat(effectiveTotalSamples)
+    }
+
     private var generateTask: GenerateTask?
     @Published private(set) var sampleData: [SampleData] = []
 
