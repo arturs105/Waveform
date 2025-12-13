@@ -69,7 +69,7 @@ class GenerateTask {
                     vDSP_maxv(pointer, stride, &value, length)
                     data.max = max(value, data.max)
                 }
-                DispatchQueue.main.sync { sampleData[point] = data }
+                sampleData[point] = data
             }
 
             DispatchQueue.main.async {
