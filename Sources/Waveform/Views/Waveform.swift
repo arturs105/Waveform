@@ -88,7 +88,7 @@ public struct Waveform: View {
         let newCount = CGFloat(count) / amount
         let delta = (count - Int(newCount)) / 2
         let renderStartSample = max(0, generator.renderSamples.lowerBound + delta)
-        let renderEndSample = min(generator.renderSamples.upperBound - delta, generator.totalVirtualSamples)
+        let renderEndSample = min(generator.renderSamples.upperBound - delta, generator.effectiveTotalSamples)
         generator.renderSamples = renderStartSample..<renderEndSample
     }
 
@@ -100,8 +100,8 @@ public struct Waveform: View {
         if startSample < 0 {
             startSample = 0
             endSample = generator.renderSamples.count
-        } else if endSample > generator.totalVirtualSamples {
-            endSample = generator.totalVirtualSamples
+        } else if endSample > generator.effectiveTotalSamples {
+            endSample = generator.effectiveTotalSamples
             startSample = endSample - generator.renderSamples.count
         }
 

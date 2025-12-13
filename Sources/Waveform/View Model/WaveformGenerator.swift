@@ -9,13 +9,20 @@ public class WaveformGenerator: ObservableObject {
     public let audioBuffer: AVAudioPCMBuffer
 
     /// Number of silent samples to prepend virtually (for time alignment).
-    public let samplesToPrepend: Int
+    public private(set) var samplesToPrepend: Int
     /// Number of silent samples to append virtually (for length equalization).
-    public let samplesToAppend: Int
+    public private(set) var samplesToAppend: Int
+    /// Global total samples for consistent scaling across all waveforms.
+    public var globalTotalSamples: Int?
 
     /// Total samples including virtual padding.
     public var totalVirtualSamples: Int {
         Int(audioBuffer.frameLength) + samplesToPrepend + samplesToAppend
+    }
+
+    /// Effective total for scaling (uses global if set, otherwise local).
+    public var effectiveTotalSamples: Int {
+        globalTotalSamples ?? totalVirtualSamples
     }
 
     private var generateTask: GenerateTask?
@@ -35,10 +42,12 @@ public class WaveformGenerator: ObservableObject {
     ///   - audioFile: The audio file to generate waveform data from.
     ///   - samplesToPrepend: Number of silent samples to prepend virtually.
     ///   - samplesToAppend: Number of silent samples to append virtually.
+    ///   - globalTotalSamples: Global total for consistent scaling across waveforms.
     public init?(
         audioFile: AVAudioFile,
         samplesToPrepend: Int = 0,
-        samplesToAppend: Int = 0
+        samplesToAppend: Int = 0,
+        globalTotalSamples: Int? = nil
     ) {
         let capacity = AVAudioFrameCount(audioFile.length)
         guard let audioBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat, frameCapacity: capacity) else { return nil }
@@ -54,11 +63,14 @@ public class WaveformGenerator: ObservableObject {
         self.audioBuffer = audioBuffer
         self.samplesToPrepend = samplesToPrepend
         self.samplesToAppend = samplesToAppend
-        self.renderSamples = 0..<(Int(capacity) + samplesToPrepend + samplesToAppend)
+        self.globalTotalSamples = globalTotalSamples
+        let localTotal = Int(capacity) + samplesToPrepend + samplesToAppend
+        self.renderSamples = 0..<(globalTotalSamples ?? localTotal)
     }
     
     func refreshData() {
         generateTask?.cancel()
+        guard width > 0 else { return }
         generateTask = GenerateTask(
             audioBuffer: audioBuffer,
             samplesToPrepend: samplesToPrepend,
@@ -69,6 +81,18 @@ public class WaveformGenerator: ObservableObject {
             self.sampleData = sampleData
         }
     }
+
+    /// Updates the virtual padding without reloading the audio buffer.
+    public func updatePadding(samplesToPrepend: Int, samplesToAppend: Int) {
+        let prependDelta = samplesToPrepend - self.samplesToPrepend
+        self.samplesToPrepend = samplesToPrepend
+        self.samplesToAppend = samplesToAppend
+
+        // Shift renderSamples to keep viewing the same audio portion
+        let newStart = max(0, renderSamples.lowerBound + prependDelta)
+        let newEnd = min(newStart + renderSamples.count, totalVirtualSamples)
+        renderSamples = newStart..<newEnd
+    }
     
     // MARK: Conversions
     func position(of sample: Int) -> CGFloat {
@@ -77,14 +101,16 @@ public class WaveformGenerator: ObservableObject {
     }
     
     func sample(for position: CGFloat) -> Int {
+        guard width > 0 else { return renderSamples.lowerBound }
         let ratio = CGFloat(renderSamples.count) / width
         let sample = renderSamples.lowerBound + Int(position * ratio)
-        return min(max(0, sample), totalVirtualSamples)
+        return min(max(0, sample), effectiveTotalSamples)
     }
 
     func sample(_ oldSample: Int, with offset: CGFloat) -> Int {
+        guard width > 0 else { return oldSample }
         let ratio = CGFloat(renderSamples.count) / width
         let sample = oldSample + Int(offset * ratio)
-        return min(max(0, sample), totalVirtualSamples)
+        return min(max(0, sample), effectiveTotalSamples)
     }
 }
