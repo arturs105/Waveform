@@ -37,6 +37,10 @@ public class WaveformGenerator: ObservableObject {
         return CGFloat(renderSamples.upperBound) / CGFloat(effectiveTotalSamples)
     }
 
+    /// Whether currently at an edge (for rubber band effect)
+    public var isAtLeadingEdge: Bool { renderSamples.lowerBound == 0 }
+    public var isAtTrailingEdge: Bool { renderSamples.upperBound == effectiveTotalSamples }
+
     private var generateTask: GenerateTask?
     @Published private(set) var sampleData: [SampleData] = []
 

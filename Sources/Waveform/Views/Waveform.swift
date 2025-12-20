@@ -46,10 +46,10 @@ public struct Waveform: View {
                 // invisible rectangle needed to register gestures that aren't on top of the waveform
                 Rectangle()
                     .foregroundColor(Color(.systemBackground).opacity(0.01))
-                
+
                 Renderer(waveformData: generator.sampleData)
                     .preference(key: SizeKey.self, value: geometry.size)
-                
+
                 if selectionEnabled {
                     Highlight(selectedSamples: selectedSamples)
                         .foregroundColor(.accentColor)
@@ -57,7 +57,7 @@ public struct Waveform: View {
                 }
             }
             .padding(.bottom, selectionEnabled ? 30 : 0)
-            
+
             if selectionEnabled {
                 StartHandle(selectedSamples: $selectedSamples)
                     .foregroundColor(.accentColor)
