@@ -99,15 +99,24 @@ public class WaveformGenerator: ObservableObject {
     }
 
     /// Updates the virtual padding without reloading the audio buffer.
-    public func updatePadding(samplesToPrepend: Int, samplesToAppend: Int) {
+    /// - Parameters:
+    ///   - samplesToPrepend: New prepend value
+    ///   - samplesToAppend: New append value
+    ///   - shiftViewport: If true, shifts renderSamples to keep viewing the same audio. If false, keeps viewport position (audio content will shift visually).
+    public func updatePadding(samplesToPrepend: Int, samplesToAppend: Int, shiftViewport: Bool = true) {
         let prependDelta = samplesToPrepend - self.samplesToPrepend
         self.samplesToPrepend = samplesToPrepend
         self.samplesToAppend = samplesToAppend
 
-        // Shift renderSamples to keep viewing the same audio portion
-        let newStart = max(0, renderSamples.lowerBound + prependDelta)
-        let newEnd = min(newStart + renderSamples.count, totalVirtualSamples)
-        renderSamples = newStart..<newEnd
+        if shiftViewport {
+            // Shift renderSamples to keep viewing the same audio portion
+            let newStart = max(0, renderSamples.lowerBound + prependDelta)
+            let newEnd = min(newStart + renderSamples.count, totalVirtualSamples)
+            renderSamples = newStart..<newEnd
+        } else {
+            // Keep viewport position, just refresh with new padding
+            refreshData()
+        }
     }
     
     // MARK: Conversions
