@@ -44,6 +44,11 @@ public class WaveformGenerator: ObservableObject {
     private var generateTask: GenerateTask?
     @Published private(set) var sampleData: [SampleData] = []
 
+    /// Display mode for waveform visualization.
+    @Published public var displayMode: WaveformDisplayMode = .normal {
+        didSet { refreshData() }
+    }
+
     /// The range of samples to display. The value will update as the waveform is zoomed and panned.
     @Published public var renderSamples: SampleRange {
         didSet { refreshData() }
@@ -93,7 +98,7 @@ public class WaveformGenerator: ObservableObject {
             samplesToAppend: samplesToAppend
         )
 
-        generateTask?.resume(width: width, renderSamples: renderSamples) { sampleData in
+        generateTask?.resume(width: width, renderSamples: renderSamples, displayMode: displayMode) { sampleData in
             self.sampleData = sampleData
         }
     }
