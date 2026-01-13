@@ -99,6 +99,7 @@ public class WaveformGenerator: ObservableObject {
     }
 
     /// Updates the virtual padding without reloading the audio buffer.
+    /// Shifts renderSamples to keep viewing the same audio portion.
     public func updatePadding(samplesToPrepend: Int, samplesToAppend: Int) {
         let prependDelta = samplesToPrepend - self.samplesToPrepend
         self.samplesToPrepend = samplesToPrepend
@@ -109,7 +110,22 @@ public class WaveformGenerator: ObservableObject {
         let newEnd = min(newStart + renderSamples.count, totalVirtualSamples)
         renderSamples = newStart..<newEnd
     }
-    
+
+    /// Updates padding and regenerates waveform WITHOUT shifting renderSamples.
+    /// This causes the audio to visually shift within the viewport.
+    public func resetPadding(samplesToPrepend: Int, samplesToAppend: Int) {
+        self.samplesToPrepend = samplesToPrepend
+        self.samplesToAppend = samplesToAppend
+        refreshData()
+    }
+
+    /// Restores padding and renderSamples to specific values (used for revert).
+    public func restoreState(samplesToPrepend: Int, samplesToAppend: Int, renderSamples: Range<Int>) {
+        self.samplesToPrepend = samplesToPrepend
+        self.samplesToAppend = samplesToAppend
+        self.renderSamples = renderSamples
+    }
+
     // MARK: Conversions
     func position(of sample: Int) -> CGFloat {
         let radio = width / CGFloat(renderSamples.count)

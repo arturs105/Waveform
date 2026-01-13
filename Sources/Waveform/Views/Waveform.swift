@@ -94,19 +94,25 @@ public struct Waveform: View {
 
     func pan(offset: CGFloat, updateAlignmentOffset: Bool = false) {
         let count = generator.renderSamples.count
-        var startSample = generator.sample(generator.renderSamples.lowerBound, with: offset)
+
+        // Compute raw unclamped sample for alignment tracking
+        let ratio = generator.width > 0 ? CGFloat(count) / generator.width : 0
+        let rawStartSample = generator.renderSamples.lowerBound + Int(offset * ratio)
+
+        var startSample = max(0, min(rawStartSample, generator.effectiveTotalSamples - count))
         var endSample = startSample + count
 
         if startSample < 0 {
             startSample = 0
-            endSample = generator.renderSamples.count
+            endSample = count
         } else if endSample > generator.effectiveTotalSamples {
             endSample = generator.effectiveTotalSamples
-            startSample = endSample - generator.renderSamples.count
+            startSample = endSample - count
         }
 
         if updateAlignmentOffset {
-            let difference = generator.renderSamples.lowerBound - startSample
+            // Use raw unclamped value to capture full intended offset (works even at edges)
+            let difference = generator.renderSamples.lowerBound - rawStartSample
             alignmentSampleOffset += difference
         }
 
