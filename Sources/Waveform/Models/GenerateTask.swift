@@ -80,7 +80,7 @@ class GenerateTask {
 
             // Compute transient weights if in highlight mode
             if displayMode == .transientHighlight {
-                self.computeTransientWeights(&sampleData)
+                TransientDetector.computeWeights(&sampleData)
             }
 
             DispatchQueue.main.async {
@@ -90,34 +90,4 @@ class GenerateTask {
         }
     }
 
-    private func computeTransientWeights(_ sampleData: inout [SampleData]) {
-        guard sampleData.count > 1 else { return }
-
-        // Compute peak amplitude for each sample
-        let peaks = sampleData.map { max(abs($0.min), abs($0.max)) }
-
-        // Compute derivative (rate of change) for each sample
-        var derivatives = [Float](repeating: 0, count: peaks.count)
-        for i in 1..<peaks.count {
-            derivatives[i] = abs(peaks[i] - peaks[i - 1])
-        }
-        // Mirror first element to avoid edge case where first sample is always 0
-        if peaks.count > 1 {
-            derivatives[0] = derivatives[1]
-        }
-
-        // Find max derivative for normalization
-        var maxDerivative: Float = 0
-        vDSP_maxv(derivatives, 1, &maxDerivative, vDSP_Length(derivatives.count))
-
-        // Normalize and apply sigmoid-like curve
-        guard maxDerivative > 0.001 else { return }
-
-        for i in 0..<sampleData.count {
-            let normalized = derivatives[i] / maxDerivative
-            // Apply curve to emphasize larger derivatives
-            // Using sqrt for gentler curve, or pow(x, 0.5)
-            sampleData[i].transientWeight = sqrt(normalized)
-        }
-    }
 }

@@ -28,27 +28,8 @@ struct Renderer: Shape {
         }
     }
 
-    /// Minimum amplitude multiplier for non-transient samples
-    private static let nonTransientAttenuation: Float = 0.15
-
-    /// Power curve exponent for transient emphasis (higher = more compression)
-    private static let transientExpansionExponent: Float = 1.5
-
     private func scaleAmplitude(_ amplitude: Float, weight: Float) -> Float {
         guard displayMode == .transientHighlight else { return amplitude }
-
-        // Two-part scaling:
-        // 1. Attenuate non-transients (low weight → smaller amplitude)
-        // 2. Compress dynamic range for transients (high weight → values pulled toward 1.0)
-
-        let attenuation = Self.nonTransientAttenuation + weight * (1.0 - Self.nonTransientAttenuation)
-
-        // Power curve: compresses dynamic range, making transients more visible
-        let scaleFactor = 1.0 / (1.0 + weight * Self.transientExpansionExponent)
-        let absAmp = abs(amplitude)
-        let expanded = pow(absAmp, scaleFactor)
-
-        let scaled = expanded * attenuation
-        return amplitude >= 0 ? scaled : -scaled
+        return TransientScaler.scaleAmplitude(amplitude, weight: weight)
     }
 }

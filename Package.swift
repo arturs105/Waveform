@@ -13,6 +13,7 @@ let package = Package(
     ],
     dependencies: [],
     targets: [
-        .target(name: "Waveform", dependencies: [])
+        .target(name: "Waveform", dependencies: []),
+        .testTarget(name: "WaveformTests", dependencies: ["Waveform"])
     ]
 )
