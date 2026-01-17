@@ -13,7 +13,9 @@ public class WaveformGenerator: ObservableObject {
     /// Number of silent samples to append virtually (for length equalization).
     public private(set) var samplesToAppend: Int
     /// Global total samples for consistent scaling across all waveforms.
-    public var globalTotalSamples: Int?
+    public var globalTotalSamples: Int? {
+        didSet { refreshData() }
+    }
 
     /// Total samples including virtual padding.
     public var totalVirtualSamples: Int {
