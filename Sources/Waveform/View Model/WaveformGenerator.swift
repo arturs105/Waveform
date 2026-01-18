@@ -90,6 +90,63 @@ public class WaveformGenerator: ObservableObject {
         let localTotal = Int(capacity) + samplesToPrepend + samplesToAppend
         self.renderSamples = 0..<(globalTotalSamples ?? localTotal)
     }
+
+    /// Asynchronously creates an instance, loading audio data on a background thread.
+    public static func loadAsync(
+        url: URL,
+        samplesToPrepend: Int = 0,
+        samplesToAppend: Int = 0,
+        globalTotalSamples: Int? = nil
+    ) async throws -> WaveformGenerator {
+        // Heavy work on background thread
+        let result: (AVAudioFile, AVAudioPCMBuffer, AVAudioFrameCount) = try await Task.detached(priority: .userInitiated) {
+            let audioFile = try AVAudioFile(forReading: url)
+            let capacity = AVAudioFrameCount(audioFile.length)
+            guard let audioBuffer = AVAudioPCMBuffer(
+                pcmFormat: audioFile.processingFormat,
+                frameCapacity: capacity
+            ) else {
+                throw LoadError.failedToCreateBuffer
+            }
+            try audioFile.read(into: audioBuffer)
+            return (audioFile, audioBuffer, capacity)
+        }.value
+        let (audioFile, audioBuffer, capacity) = result
+
+        // Create generator on main actor
+        return await MainActor.run {
+            let localTotal = Int(capacity) + samplesToPrepend + samplesToAppend
+            return WaveformGenerator(
+                audioFile: audioFile,
+                audioBuffer: audioBuffer,
+                samplesToPrepend: samplesToPrepend,
+                samplesToAppend: samplesToAppend,
+                globalTotalSamples: globalTotalSamples,
+                renderSamples: 0..<(globalTotalSamples ?? localTotal)
+            )
+        }
+    }
+
+    public enum LoadError: Error {
+        case failedToCreateBuffer
+    }
+
+    /// Private initializer for async loading path
+    private init(
+        audioFile: AVAudioFile,
+        audioBuffer: AVAudioPCMBuffer,
+        samplesToPrepend: Int,
+        samplesToAppend: Int,
+        globalTotalSamples: Int?,
+        renderSamples: SampleRange
+    ) {
+        self.audioFile = audioFile
+        self.audioBuffer = audioBuffer
+        self.samplesToPrepend = samplesToPrepend
+        self.samplesToAppend = samplesToAppend
+        self.globalTotalSamples = globalTotalSamples
+        self.renderSamples = renderSamples
+    }
     
     func refreshData() {
         generateTask?.cancel()
