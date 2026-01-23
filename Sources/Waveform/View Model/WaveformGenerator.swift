@@ -209,4 +209,48 @@ public class WaveformGenerator: ObservableObject {
         let sample = oldSample + Int(offset * ratio)
         return min(max(0, sample), effectiveTotalSamples)
     }
+
+    // MARK: - Preview Support
+
+    /// Creates a WaveformGenerator with synthetic audio data for SwiftUI previews.
+    /// Generates a waveform pattern resembling real audio.
+    public static func preview(duration: TimeInterval = 10, sampleRate: Int = 44100) -> WaveformGenerator? {
+        let frameCount = Int(duration * Double(sampleRate))
+        let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1)!
+
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount)) else {
+            return nil
+        }
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+
+        // Generate synthetic waveform resembling audio
+        if let channelData = buffer.floatChannelData?[0] {
+            for i in 0..<frameCount {
+                let t = Float(i) / Float(sampleRate)
+                // Mix of frequencies for interesting waveform shape
+                let base = sin(t * 440 * 2 * .pi) * 0.3
+                let harmonic = sin(t * 880 * 2 * .pi) * 0.15
+                let sub = sin(t * 110 * 2 * .pi) * 0.2
+                // Amplitude envelope (fade in/out with variation)
+                let envelope = min(1, Float(i) / 4410) * min(1, Float(frameCount - i) / 4410)
+                let variation = 0.5 + 0.5 * sin(t * 2 * .pi * 0.5)
+                channelData[i] = (base + harmonic + sub) * envelope * Float(variation)
+            }
+        }
+
+        // Write to temp file (AVAudioFile requires a file)
+        // Use static filename to avoid accumulating temp files during development
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("waveform_preview.caf")
+        try? FileManager.default.removeItem(at: tempURL)
+        do {
+            let audioFile = try AVAudioFile(forWriting: tempURL, settings: format.settings)
+            try audioFile.write(from: buffer)
+            // Re-open for reading
+            let readFile = try AVAudioFile(forReading: tempURL)
+            return WaveformGenerator(audioFile: readFile)
+        } catch {
+            print("Preview audio generation failed: \(error)")
+            return nil
+        }
+    }
 }
