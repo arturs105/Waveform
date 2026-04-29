@@ -46,7 +46,7 @@ public func clipRenderRange(
     // Compute pixel width for the padded range
     let paddedPixelStart = viewport.screenX(for: paddedClipStart, viewWidth: viewWidth)
     let paddedPixelEnd = viewport.screenX(for: paddedClipEnd, viewWidth: viewWidth)
-    let pixelWidth = Int(max(1, paddedPixelEnd - paddedPixelStart))
+    let pixelWidth = max(1, Int(round(paddedPixelEnd - paddedPixelStart)))
     let samplesPerPixel = Double(audioRange.count) / Double(pixelWidth)
 
     return ClipRenderRange(
