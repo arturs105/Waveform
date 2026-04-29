@@ -53,7 +53,7 @@ class GenerateTask {
                     guard !self.isCancelled.withLock({ $0 }) else { return }
 
                     let start = audioRange.lowerBound + Int(Double(point) * samplesPerPixel)
-                    let end = audioRange.lowerBound + Int(Double(point + 1) * samplesPerPixel)
+                    let end = min(audioRange.lowerBound + Int(Double(point + 1) * samplesPerPixel), audioRange.upperBound)
                     let length = end - start
 
                     guard length > 0, start >= 0, end <= Int(self.audioBuffer.frameLength) else { return }
@@ -97,17 +97,17 @@ class GenerateTask {
         DispatchQueue.global(qos: .userInteractive).async {
             let channels = Int(self.audioBuffer.format.channelCount)
             let actualSampleCount = Int(self.audioBuffer.frameLength)
-            let samplesPerPoint = renderSamples.count / Int(width)
+            let samplesPerPixel = Double(renderSamples.count) / Double(Int(width))
 
             guard let floatChannelData = self.audioBuffer.floatChannelData else { return }
-            guard samplesPerPoint > 0 else { return }
+            guard samplesPerPixel >= 1.0 else { return }
 
             sampleData.withUnsafeMutableBufferPointer { buffer in
                 DispatchQueue.concurrentPerform(iterations: Int(width)) { point in
                     guard !self.isCancelled.withLock({ $0 }) else { return }
 
-                    let pointStartVirtual = renderSamples.lowerBound + (point * samplesPerPoint)
-                    let pointEndVirtual = pointStartVirtual + samplesPerPoint
+                    let pointStartVirtual = renderSamples.lowerBound + Int(Double(point) * samplesPerPixel)
+                    let pointEndVirtual = renderSamples.lowerBound + Int(Double(point + 1) * samplesPerPixel)
 
                     let fullyInPrepend = pointEndVirtual <= self.samplesToPrepend
                     let fullyInAppend = pointStartVirtual >= (self.samplesToPrepend + actualSampleCount)
