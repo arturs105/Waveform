@@ -9,7 +9,8 @@ public struct ClipRenderRange {
     public let audioRange: Range<Int>
     /// The pixel width to render into.
     public let pixelWidth: Int
-    /// Samples per pixel for this render.
+    /// Timeline samples per pixel for this render (the unit the viewport, playhead,
+    /// and snapshot coverage checks all work in — not native audio samples).
     public let samplesPerPixel: Double
 }
 
@@ -36,9 +37,10 @@ public func clipRenderRange(
     let paddedClipStart = max(clipRange.lowerBound, visibleClipStart - paddingSamples)
     let paddedClipEnd = min(clipRange.upperBound, visibleClipEnd + paddingSamples)
 
-    // Map padded range to audio file sample coordinates
-    let audioStart = clip.inPoint + (paddedClipStart - clip.timelinePosition)
-    let audioEnd = clip.inPoint + (paddedClipEnd - clip.timelinePosition)
+    // Map padded range (timeline coords) back to native audio file coordinates.
+    // toNative collapses to identity when the clip is already at the timeline rate.
+    let audioStart = clip.inPoint + clip.toNative(paddedClipStart - clip.timelinePosition)
+    let audioEnd = clip.inPoint + clip.toNative(paddedClipEnd - clip.timelinePosition)
     let audioRange = max(0, audioStart)..<min(audioEnd, clip.audioFrameCount)
 
     guard audioRange.count > 0 else { return nil }
@@ -47,7 +49,9 @@ public func clipRenderRange(
     let paddedPixelStart = viewport.screenX(for: paddedClipStart, viewWidth: viewWidth)
     let paddedPixelEnd = viewport.screenX(for: paddedClipEnd, viewWidth: viewWidth)
     let pixelWidth = Int(max(1, paddedPixelEnd - paddedPixelStart))
-    let samplesPerPixel = Double(audioRange.count) / Double(pixelWidth)
+    // Timeline samples per pixel — paddedClip range is already timeline coords.
+    // (Native audio bucketing happens inside GenerateTask from audioRange + pixelWidth.)
+    let samplesPerPixel = Double(paddedClipEnd - paddedClipStart) / Double(pixelWidth)
 
     return ClipRenderRange(
         paddedTimelineStart: paddedClipStart,
