@@ -48,7 +48,7 @@ public func clipRenderRange(
     // Compute pixel width for the padded range
     let paddedPixelStart = viewport.screenX(for: paddedClipStart, viewWidth: viewWidth)
     let paddedPixelEnd = viewport.screenX(for: paddedClipEnd, viewWidth: viewWidth)
-    let pixelWidth = Int(max(1, paddedPixelEnd - paddedPixelStart))
+    let pixelWidth = max(1, Int(round(paddedPixelEnd - paddedPixelStart)))
     // Timeline samples per pixel — paddedClip range is already timeline coords.
     // (Native audio bucketing happens inside GenerateTask from audioRange + pixelWidth.)
     let samplesPerPixel = Double(paddedClipEnd - paddedClipStart) / Double(pixelWidth)
