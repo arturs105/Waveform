@@ -49,6 +49,33 @@ struct ClipRendererChannelTests {
         #expect(try ClipRenderer.isolate(channel: 0, of: mono) === mono)
     }
 
+    /// `AVAudioFile` always hands back deinterleaved buffers, but the helper is
+    /// public-adjacent — an interleaved buffer must read the woven samples, not
+    /// index a channel pointer that doesn't exist.
+    @Test("isolating from an interleaved buffer reads the right samples")
+    func isolatesFromInterleavedBuffer() throws {
+        let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 2,
+            interleaved: true
+        )!
+        let frames: AVAudioFrameCount = 512
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        let woven = buffer.floatChannelData![0]
+        for frame in 0..<Int(frames) {
+            woven[frame * 2] = 0.2
+            woven[frame * 2 + 1] = 0.8
+        }
+
+        let isolated = try ClipRenderer.isolate(channel: 0, of: buffer)
+        #expect(isolated.format.channelCount == 1)
+        #expect(isolated.frameLength == frames)
+        #expect(abs(isolated.floatChannelData![0][0] - 0.2) < 0.0001)
+        #expect(abs(isolated.floatChannelData![0][511] - 0.2) < 0.0001)
+    }
+
     @Test("the drawn envelope follows the isolated channel, not the loud one")
     func generatorSeesOnlyIsolatedChannel() async throws {
         let isolated = try ClipRenderer.isolate(channel: 0, of: lopsidedStereo())
