@@ -85,6 +85,7 @@ public class ClipRenderer: ObservableObject {
     /// played. Returns the original buffer when there is nothing to isolate.
     nonisolated static func isolate(channel: Int?, of buffer: AVAudioPCMBuffer) throws -> AVAudioPCMBuffer {
         guard let channel,
+              channel >= 0,
               buffer.format.channelCount > 1,
               channel < Int(buffer.format.channelCount),
               let source = buffer.floatChannelData,
@@ -100,9 +101,14 @@ public class ClipRenderer: ObservableObject {
             throw ClipRendererError.failedToCreateBuffer
         }
         mono.frameLength = buffer.frameLength
+        // Deinterleaved (what `AVAudioFile` hands back): one pointer per channel,
+        // stride 1. Interleaved: a single pointer with the channels woven
+        // together, so `floatChannelData[channel]` would run off the end.
         let stride = buffer.stride
+        let samples = buffer.format.isInterleaved ? source[0] : source[channel]
+        let offset = buffer.format.isInterleaved ? channel : 0
         for frame in 0..<Int(buffer.frameLength) {
-            destination[0][frame] = source[channel][frame * stride]
+            destination[0][frame] = samples[frame * stride + offset]
         }
         return mono
     }
