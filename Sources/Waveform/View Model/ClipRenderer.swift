@@ -51,7 +51,12 @@ public class ClipRenderer: ObservableObject {
 
     /// Loads audio from a URL on a background thread.
     /// Cancels any in-flight load before starting.
-    public func loadAsync(url: URL) async throws {
+    ///
+    /// - Parameter isolatingChannel: when set, only that channel is drawn. Use it
+    ///   for files whose remaining channels are never played back, so the drawn
+    ///   envelope matches what the listener hears. Ignored for mono files and
+    ///   out-of-range indices.
+    public func loadAsync(url: URL, isolatingChannel: Int? = nil) async throws {
         loadTask?.cancel()
         let task = Task.detached(priority: .userInitiated) {
             let audioFile = try AVAudioFile(forReading: url)
@@ -63,7 +68,8 @@ public class ClipRenderer: ObservableObject {
                 throw ClipRendererError.failedToCreateBuffer
             }
             try audioFile.read(into: buffer)
-            return (buffer, Int(capacity), Int(audioFile.processingFormat.sampleRate))
+            let drawn = try Self.isolate(channel: isolatingChannel, of: buffer)
+            return (drawn, Int(capacity), Int(audioFile.processingFormat.sampleRate))
         }
         loadTask = task
         let (buffer, frameCount, sampleRate) = try await task.value
@@ -72,6 +78,33 @@ public class ClipRenderer: ObservableObject {
         self.audioBuffer = buffer
         self.audioFrameCount = frameCount
         self.audioSampleRate = sampleRate
+    }
+
+    /// Copies a single channel into a fresh mono buffer, so the generator — which
+    /// takes the min/max across every channel — can't fold in audio that is never
+    /// played. Returns the original buffer when there is nothing to isolate.
+    nonisolated static func isolate(channel: Int?, of buffer: AVAudioPCMBuffer) throws -> AVAudioPCMBuffer {
+        guard let channel,
+              buffer.format.channelCount > 1,
+              channel < Int(buffer.format.channelCount),
+              let source = buffer.floatChannelData,
+              let monoFormat = AVAudioFormat(
+                commonFormat: buffer.format.commonFormat,
+                sampleRate: buffer.format.sampleRate,
+                channels: 1,
+                interleaved: false)
+        else { return buffer }
+
+        guard let mono = AVAudioPCMBuffer(pcmFormat: monoFormat, frameCapacity: max(buffer.frameLength, 1)),
+              let destination = mono.floatChannelData else {
+            throw ClipRendererError.failedToCreateBuffer
+        }
+        mono.frameLength = buffer.frameLength
+        let stride = buffer.stride
+        for frame in 0..<Int(buffer.frameLength) {
+            destination[0][frame] = source[channel][frame * stride]
+        }
+        return mono
     }
 
     public var isLoaded: Bool { audioBuffer != nil }
