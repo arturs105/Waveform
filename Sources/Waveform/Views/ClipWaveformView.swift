@@ -19,12 +19,22 @@ public struct ClipWaveformView: View {
             let snap = renderer.snapshot
             let (scale, offset) = waveformCorrection(snapshot: snap, viewWidth: width)
 
-            Renderer(
-                waveformData: snap.sampleData,
-                displayMode: renderer.displayMode,
-                xScale: scale,
-                xOffset: offset
-            )
+            ZStack {
+                Renderer(
+                    waveformData: snap.sampleData,
+                    style: renderer.style,
+                    xScale: scale,
+                    xOffset: offset
+                )
+
+                if renderer.style.transientMarkers {
+                    TransientMarkers(
+                        onsetSamples: renderer.onsetSamples,
+                        clip: clip,
+                        viewport: viewport
+                    )
+                }
+            }
             .clipped()
             .onChange(of: viewport) { _, newViewport in
                 renderer.update(viewport: newViewport, clip: clip, width: width)
@@ -35,7 +45,7 @@ public struct ClipWaveformView: View {
             .onChange(of: width) { _, newWidth in
                 renderer.update(viewport: viewport, clip: clip, width: newWidth)
             }
-            .onChange(of: renderer.displayMode) { _, _ in
+            .onChange(of: renderer.style) { _, _ in
                 renderer.update(viewport: viewport, clip: clip, width: width)
             }
             .onAppear {

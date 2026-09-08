@@ -47,7 +47,7 @@ public struct Waveform: View {
                 Rectangle()
                     .foregroundColor(Color(.systemBackground).opacity(0.01))
 
-                Renderer(waveformData: generator.sampleData, displayMode: generator.displayMode)
+                Renderer(waveformData: generator.sampleData, style: generator.style)
                     .preference(key: SizeKey.self, value: geometry.size)
 
                 if selectionEnabled {

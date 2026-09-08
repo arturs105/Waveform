@@ -106,7 +106,8 @@ struct TransientDetectorTests {
         let weights = samples.map(\.transientWeight)
         let firstWeight = weights[0]
         for weight in weights {
-            #expect(weight == firstWeight)
+            // Tolerance, not equality: the derivatives differ in the last float bit.
+            #expect(abs(weight - firstWeight) < 0.0001)
         }
     }
 }

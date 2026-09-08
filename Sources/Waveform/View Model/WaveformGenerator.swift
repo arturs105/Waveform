@@ -47,7 +47,7 @@ public class WaveformGenerator: ObservableObject {
     @Published private(set) var sampleData: [SampleData] = []
 
     /// Display mode for waveform visualization.
-    @Published public var displayMode: WaveformDisplayMode = .normal {
+    @Published public var style: WaveformStyle = .normal {
         didSet { refreshData() }
     }
 
@@ -157,7 +157,7 @@ public class WaveformGenerator: ObservableObject {
             samplesToAppend: samplesToAppend
         )
 
-        generateTask?.resume(width: width, renderSamples: renderSamples, displayMode: displayMode) { sampleData in
+        generateTask?.resume(width: width, renderSamples: renderSamples, style: style) { sampleData in
             self.sampleData = sampleData
         }
     }

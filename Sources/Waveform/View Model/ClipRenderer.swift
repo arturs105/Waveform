@@ -35,15 +35,31 @@ public class ClipRenderer: ObservableObject {
     /// Single atomic snapshot of the latest render output.
     @Published public private(set) var snapshot: RenderSnapshot = .empty
 
-    @Published public var displayMode: WaveformDisplayMode = .normal
+    @Published public var style: WaveformStyle = .normal {
+        didSet {
+            // The detector choice changes where the onsets land, so drop the
+            // analysis; everything else only affects drawing.
+            if style.adaptiveDetector != oldValue.adaptiveDetector {
+                onsetTask?.cancel()
+                onsetTask = nil
+                onsetSamples = []
+            }
+            ensureOnsetAnalysis()
+        }
+    }
+
+    /// Onset positions in native audio frames, analysed once for the whole clip
+    /// at a fixed time resolution so markers don't move when zooming.
+    @Published public private(set) var onsetSamples: [Int] = []
 
     private var loadTask: Task<(AVAudioPCMBuffer, Int, Int), any Error>?
+    private var onsetTask: Task<Void, Never>?
     private var generateTask: GenerateTask?
     private var renderGeneration: Int = 0
     private var lastViewport: TimelineViewport?
     private var lastClip: ClipDescriptor?
     private var lastWidth: CGFloat = 0
-    private var lastDisplayMode: WaveformDisplayMode = .normal
+    private var lastStyle: WaveformStyle = .normal
 
     public init() {}
 
@@ -78,6 +94,20 @@ public class ClipRenderer: ObservableObject {
         self.audioBuffer = buffer
         self.audioFrameCount = frameCount
         self.audioSampleRate = sampleRate
+        ensureOnsetAnalysis()
+    }
+
+    /// Starts the clip-wide onset analysis if markers are on and it hasn't run yet.
+    private func ensureOnsetAnalysis() {
+        guard style.transientMarkers, onsetTask == nil, let buffer = audioBuffer else { return }
+        let adaptive = style.adaptiveDetector
+        onsetTask = Task { [weak self] in
+            let samples = await Task.detached(priority: .utility) {
+                TransientAnalyzer.onsetSamples(in: buffer, adaptive: adaptive)
+            }.value
+            guard !Task.isCancelled else { return }
+            self?.onsetSamples = samples
+        }
     }
 
     /// Copies a single channel into a fresh mono buffer, so the generator — which
@@ -118,6 +148,8 @@ public class ClipRenderer: ObservableObject {
     /// Cancels any in-flight render task.
     public func cancelRender() {
         generateTask?.cancel()
+        onsetTask?.cancel()
+        onsetTask = nil
     }
 
     // MARK: - Rendering
@@ -127,19 +159,23 @@ public class ClipRenderer: ObservableObject {
     public func update(viewport: TimelineViewport, clip: ClipDescriptor, width: CGFloat) {
         guard width > 0, let audioBuffer else { return }
 
+        // Cheap no-op unless markers are on and the analysis hasn't run (or was
+        // cancelled when the lane scrolled off screen).
+        ensureOnsetAnalysis()
+
         // Skip if nothing changed
-        if viewport == lastViewport && clip == lastClip && width == lastWidth && displayMode == lastDisplayMode {
+        if viewport == lastViewport && clip == lastClip && width == lastWidth && style == lastStyle {
             return
         }
 
         let clipChanged = clip != lastClip
-        let displayModeChanged = displayMode != lastDisplayMode
+        let styleChanged = style != lastStyle
         let widthChanged = width != lastWidth
 
         lastViewport = viewport
         lastClip = clip
         lastWidth = width
-        lastDisplayMode = displayMode
+        lastStyle = style
 
         // Intersect clip's timeline range with visible range
         let clipRange = clip.timelineRange
@@ -154,7 +190,7 @@ public class ClipRenderer: ObservableObject {
 
         // Check if the existing render still covers the visible range with adequate resolution.
         // If so, skip re-rendering — the correction transform handles viewport changes smoothly.
-        if !clipChanged && !displayModeChanged && !widthChanged && snapshot.sampleData.count > 0 {
+        if !clipChanged && !styleChanged && !widthChanged && snapshot.sampleData.count > 0 {
             let snap = snapshot
             let renderedEnd = snap.paddedTimelineStart + Int(Double(snap.sampleData.count) * snap.samplesPerPixel)
             let visibleCovered = snap.paddedTimelineStart <= visibleRange.lowerBound
@@ -187,7 +223,7 @@ public class ClipRenderer: ObservableObject {
         task.resume(
             width: CGFloat(renderRange.pixelWidth),
             audioRange: renderRange.audioRange,
-            displayMode: displayMode
+            style: style
         ) { [weak self] data in
             Task { @MainActor [weak self] in
                 guard let self, self.renderGeneration == expectedGeneration else { return }

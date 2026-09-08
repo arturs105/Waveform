@@ -29,7 +29,7 @@ class GenerateTask {
     func resume(
         width: CGFloat,
         audioRange: Range<Int>,
-        displayMode: WaveformDisplayMode = .normal,
+        style: WaveformStyle = .normal,
         completion: @escaping ([SampleData]) -> Void
     ) {
         let pixelCount = Int(width)
@@ -58,25 +58,18 @@ class GenerateTask {
 
                     guard length > 0, start >= 0, end <= Int(self.audioBuffer.frameLength) else { return }
 
-                    var data: SampleData = .zero
-                    for channel in 0..<channels {
-                        let pointer = floatChannelData[channel].advanced(by: start)
-                        let stride = vDSP_Stride(self.audioBuffer.stride)
-                        let len = vDSP_Length(length)
-
-                        var value: Float = 0
-                        vDSP_minv(pointer, stride, &value, len)
-                        data.min = min(value, data.min)
-
-                        vDSP_maxv(pointer, stride, &value, len)
-                        data.max = max(value, data.max)
-                    }
-                    buffer[point] = data
+                    buffer[point] = ColumnReducer.reduce(
+                        floatChannelData: floatChannelData,
+                        channels: channels,
+                        stride: vDSP_Stride(self.audioBuffer.stride),
+                        start: start,
+                        length: length
+                    )
                 }
             }
 
-            if displayMode == .transientHighlight {
-                TransientDetector.computeWeights(&sampleData)
+            if style.needsTransientWeights {
+                TransientDetector.computeWeights(&sampleData, adaptive: style.adaptiveDetector)
             }
 
             guard !self.isCancelled.withLock({ $0 }) else { return }
@@ -89,7 +82,7 @@ class GenerateTask {
     func resume(
         width: CGFloat,
         renderSamples: SampleRange,
-        displayMode: WaveformDisplayMode = .normal,
+        style: WaveformStyle = .normal,
         completion: @escaping ([SampleData]) -> Void
     ) {
         var sampleData = [SampleData](repeating: .zero, count: Int(width))
@@ -122,26 +115,18 @@ class GenerateTask {
 
                     guard actualLength > 0 else { return }
 
-                    var data: SampleData = .zero
-                    for channel in 0..<channels {
-                        let pointer = floatChannelData[channel].advanced(by: actualStart)
-                        let stride = vDSP_Stride(self.audioBuffer.stride)
-                        let length = vDSP_Length(actualLength)
-
-                        var value: Float = 0
-
-                        vDSP_minv(pointer, stride, &value, length)
-                        data.min = min(value, data.min)
-
-                        vDSP_maxv(pointer, stride, &value, length)
-                        data.max = max(value, data.max)
-                    }
-                    buffer[point] = data
+                    buffer[point] = ColumnReducer.reduce(
+                        floatChannelData: floatChannelData,
+                        channels: channels,
+                        stride: vDSP_Stride(self.audioBuffer.stride),
+                        start: actualStart,
+                        length: actualLength
+                    )
                 }
             }
 
-            if displayMode == .transientHighlight {
-                TransientDetector.computeWeights(&sampleData)
+            if style.needsTransientWeights {
+                TransientDetector.computeWeights(&sampleData, adaptive: style.adaptiveDetector)
             }
 
             DispatchQueue.main.async {
@@ -150,5 +135,4 @@ class GenerateTask {
             }
         }
     }
-
 }
