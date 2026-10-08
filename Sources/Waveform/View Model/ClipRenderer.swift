@@ -183,7 +183,7 @@ public class ClipRenderer: ObservableObject {
         // as covered.
         if !clipChanged && !displayModeChanged && !widthChanged && snapshot.sampleData.count > 0 {
             let snap = snapshot
-            let visibleCovered = snap.covers(drawnRange.clamped(to: clipRange))
+            let drawnCovered = snap.covers(drawnRange.clamped(to: clipRange))
 
             // Check zoom: current ideal spp vs rendered spp
             let idealSpp = Double(visibleRange.count) / Double(width)
@@ -191,7 +191,7 @@ public class ClipRenderer: ObservableObject {
             // Re-render if zoom changed by >2x in either direction, or if panned beyond buffer
             let zoomOk = zoomRatio > 0.5 && zoomRatio < 2.0
 
-            if visibleCovered && zoomOk {
+            if drawnCovered && zoomOk {
                 return
             }
         }

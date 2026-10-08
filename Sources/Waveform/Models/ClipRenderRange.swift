@@ -33,13 +33,13 @@ public func clipRenderRange(
     guard clipRange.overlaps(drawnRange) else { return nil }
 
     // Intersect clip with the drawn range
-    let visibleClipStart = max(clipRange.lowerBound, drawnRange.lowerBound)
-    let visibleClipEnd = min(clipRange.upperBound, drawnRange.upperBound)
+    let drawnClipStart = max(clipRange.lowerBound, drawnRange.lowerBound)
+    let drawnClipEnd = min(clipRange.upperBound, drawnRange.upperBound)
 
     // Expand by 150% of visible width each side to cover fast scroll
     let paddingSamples = visibleRange.count * 3 / 2
-    let paddedClipStart = max(clipRange.lowerBound, visibleClipStart - paddingSamples)
-    let paddedClipEnd = min(clipRange.upperBound, visibleClipEnd + paddingSamples)
+    let paddedClipStart = max(clipRange.lowerBound, drawnClipStart - paddingSamples)
+    let paddedClipEnd = min(clipRange.upperBound, drawnClipEnd + paddingSamples)
 
     // Map padded range (timeline coords) back to native audio file coordinates.
     // toNative collapses to identity when the clip is already at the timeline rate.
