@@ -6,11 +6,21 @@ public struct ClipWaveformView: View {
     @ObservedObject var renderer: ClipRenderer
     let viewport: TimelineViewport
     let clip: ClipDescriptor
+    /// How far past the frame the waveform may draw on each side (see
+    /// `HorizontalOverdraw`). The frame — and so the viewport mapping — is
+    /// unchanged; only the clip widens.
+    let overdraw: HorizontalOverdraw
 
-    public init(renderer: ClipRenderer, viewport: TimelineViewport, clip: ClipDescriptor) {
+    public init(
+        renderer: ClipRenderer,
+        viewport: TimelineViewport,
+        clip: ClipDescriptor,
+        overdraw: HorizontalOverdraw = .zero
+    ) {
         self.renderer = renderer
         self.viewport = viewport
         self.clip = clip
+        self.overdraw = overdraw
     }
 
     public var body: some View {
@@ -25,7 +35,7 @@ public struct ClipWaveformView: View {
                 xScale: scale,
                 xOffset: offset
             )
-            .clipped()
+            .clipShape(HorizontalOverdrawClip(overdraw: overdraw))
             .onChange(of: viewport) { _, newViewport in
                 renderer.update(viewport: newViewport, clip: clip, width: width)
             }
