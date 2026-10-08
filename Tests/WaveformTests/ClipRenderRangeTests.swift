@@ -134,4 +134,69 @@ struct ClipRenderRangeTests {
         let expected = Double(result!.paddedTimelineStart.distance(to: clip.timelineEndPosition)) / Double(result!.pixelWidth)
         #expect(abs(result!.samplesPerPixel - expected) < 1.0)
     }
+
+    // MARK: - Overdraw (#597)
+
+    // 500pt showing 5000 samples = 10 samples per point; 50pt strips = 500 samples.
+    let overdraw = HorizontalOverdraw(leading: 50, trailing: 50)
+
+    @Test("clip ending just before the visible range renders when it reaches the leading strip")
+    func clipInLeadingStripOnly() {
+        let clip = ClipDescriptor(nativePrepend: 0, audioFrameCount: 9800, sampleRate: 44100, timelineRate: 44100)
+        let viewport = TimelineViewport(visibleRange: 10_000..<15_000, totalLength: 50_000)
+        #expect(clipRenderRange(clip: clip, viewport: viewport, viewWidth: 500) == nil)
+        #expect(clipRenderRange(clip: clip, viewport: viewport, viewWidth: 500, overdraw: overdraw) != nil)
+    }
+
+    @Test("clip starting just after the visible range renders when it reaches the trailing strip")
+    func clipInTrailingStripOnly() {
+        let clip = ClipDescriptor(nativePrepend: 15_200, audioFrameCount: 5000, sampleRate: 44100, timelineRate: 44100)
+        let viewport = TimelineViewport(visibleRange: 10_000..<15_000, totalLength: 50_000)
+        #expect(clipRenderRange(clip: clip, viewport: viewport, viewWidth: 500) == nil)
+        #expect(clipRenderRange(clip: clip, viewport: viewport, viewWidth: 500, overdraw: overdraw) != nil)
+    }
+
+    @Test("clip beyond both strips still returns nil")
+    func clipBeyondStrips() {
+        let clip = ClipDescriptor(nativePrepend: 20_000, audioFrameCount: 5000, sampleRate: 44100, timelineRate: 44100)
+        let viewport = TimelineViewport(visibleRange: 10_000..<15_000, totalLength: 50_000)
+        #expect(clipRenderRange(clip: clip, viewport: viewport, viewWidth: 500, overdraw: overdraw) == nil)
+    }
+
+    @Test("render covers the strips, not just the visible range")
+    func renderCoversStrips() {
+        let clip = ClipDescriptor(nativePrepend: 0, audioFrameCount: 50_000, sampleRate: 44100, timelineRate: 44100)
+        let viewport = TimelineViewport(visibleRange: 20_000..<25_000, totalLength: 50_000)
+        let result = clipRenderRange(clip: clip, viewport: viewport, viewWidth: 500, overdraw: overdraw)!
+        let end = result.paddedTimelineStart + Int((Double(result.pixelWidth) * result.samplesPerPixel).rounded())
+        #expect(result.paddedTimelineStart <= 19_500)
+        #expect(end >= 25_500)
+    }
+}
+
+@Suite("RenderSnapshot.covers")
+struct RenderSnapshotCoversTests {
+    // 100 pixels × 10 samples from 1000 = 1000..<2000.
+    let snap = RenderSnapshot(
+        sampleData: Array(repeating: SampleData(min: 0, max: 0), count: 100),
+        paddedTimelineStart: 1000,
+        samplesPerPixel: 10
+    )
+
+    @Test("covers ranges inside the render")
+    func inside() {
+        #expect(snap.covers(1000..<2000))
+        #expect(snap.covers(1200..<1800))
+    }
+
+    @Test("misses ranges spilling past either end")
+    func spills() {
+        #expect(!snap.covers(999..<1500))
+        #expect(!snap.covers(1500..<2001))
+    }
+
+    @Test("empty render covers nothing")
+    func empty() {
+        #expect(!RenderSnapshot.empty.covers(0..<1))
+    }
 }

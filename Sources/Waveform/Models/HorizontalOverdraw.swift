@@ -29,6 +29,20 @@ public struct HorizontalOverdraw: Equatable, Sendable {
             height: bounds.height
         )
     }
+
+    /// The timeline samples drawn on screen: the viewport's visible range
+    /// widened by the overdraw, converted at the viewport's points-per-sample
+    /// and rounded outward. May extend past `0..<totalLength`; callers
+    /// intersect it with what they draw. `.zero` (or a zero width) = the
+    /// visible range unchanged.
+    public func drawnRange(of viewport: TimelineViewport, viewWidth: CGFloat) -> Range<Int> {
+        let visible = viewport.visibleRange
+        guard viewWidth > 0, visible.count > 0 else { return visible }
+        let samplesPerPoint = CGFloat(visible.count) / viewWidth
+        let before = Int((leading * samplesPerPoint).rounded(.up))
+        let after = Int((trailing * samplesPerPoint).rounded(.up))
+        return (visible.lowerBound - before)..<(visible.upperBound + after)
+    }
 }
 
 /// Clip shape for `HorizontalOverdraw`: a rectangle wider than the view it

@@ -15,22 +15,26 @@ public struct ClipRenderRange {
 }
 
 /// Computes the render range for a clip given a viewport and view width.
-/// Returns nil if the clip is not visible or there's nothing to render.
+/// Returns nil if the clip is not drawn on screen (visible range widened by
+/// `overdraw`) or there's nothing to render.
 public func clipRenderRange(
     clip: ClipDescriptor,
     viewport: TimelineViewport,
-    viewWidth: CGFloat
+    viewWidth: CGFloat,
+    overdraw: HorizontalOverdraw = .zero
 ) -> ClipRenderRange? {
     guard viewWidth > 0 else { return nil }
 
     let clipRange = clip.timelineRange
     let visibleRange = viewport.visibleRange
+    // What's on screen: the visible range plus any overdraw strips.
+    let drawnRange = overdraw.drawnRange(of: viewport, viewWidth: viewWidth)
 
-    guard clipRange.overlaps(visibleRange) else { return nil }
+    guard clipRange.overlaps(drawnRange) else { return nil }
 
-    // Intersect clip with visible range
-    let visibleClipStart = max(clipRange.lowerBound, visibleRange.lowerBound)
-    let visibleClipEnd = min(clipRange.upperBound, visibleRange.upperBound)
+    // Intersect clip with the drawn range
+    let visibleClipStart = max(clipRange.lowerBound, drawnRange.lowerBound)
+    let visibleClipEnd = min(clipRange.upperBound, drawnRange.upperBound)
 
     // Expand by 150% of visible width each side to cover fast scroll
     let paddingSamples = visibleRange.count * 3 / 2

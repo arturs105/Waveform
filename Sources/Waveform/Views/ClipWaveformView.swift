@@ -37,19 +37,22 @@ public struct ClipWaveformView: View {
             )
             .clipShape(HorizontalOverdrawClip(overdraw: overdraw))
             .onChange(of: viewport) { _, newViewport in
-                renderer.update(viewport: newViewport, clip: clip, width: width)
+                renderer.update(viewport: newViewport, clip: clip, width: width, overdraw: overdraw)
             }
             .onChange(of: clip) { _, newClip in
-                renderer.update(viewport: viewport, clip: newClip, width: width)
+                renderer.update(viewport: viewport, clip: newClip, width: width, overdraw: overdraw)
             }
             .onChange(of: width) { _, newWidth in
-                renderer.update(viewport: viewport, clip: clip, width: newWidth)
+                renderer.update(viewport: viewport, clip: clip, width: newWidth, overdraw: overdraw)
+            }
+            .onChange(of: overdraw) { _, newOverdraw in
+                renderer.update(viewport: viewport, clip: clip, width: width, overdraw: newOverdraw)
             }
             .onChange(of: renderer.displayMode) { _, _ in
-                renderer.update(viewport: viewport, clip: clip, width: width)
+                renderer.update(viewport: viewport, clip: clip, width: width, overdraw: overdraw)
             }
             .onAppear {
-                renderer.update(viewport: viewport, clip: clip, width: width)
+                renderer.update(viewport: viewport, clip: clip, width: width, overdraw: overdraw)
             }
         }
     }
