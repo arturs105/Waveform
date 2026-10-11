@@ -58,6 +58,13 @@ public class ClipRenderer: ObservableObject {
     ///   out-of-range indices.
     public func loadAsync(url: URL, isolatingChannel: Int? = nil) async throws {
         loadTask?.cancel()
+        let cache = WaveformBufferCache.shared
+        if let cached = cache.entry(url: url, channel: isolatingChannel) {
+            audioBuffer = cached.buffer
+            audioFrameCount = cached.frameCount
+            audioSampleRate = cached.sampleRate
+            return
+        }
         let task = Task.detached(priority: .userInitiated) {
             let audioFile = try AVAudioFile(forReading: url)
             let capacity = AVAudioFrameCount(audioFile.length)
@@ -78,6 +85,11 @@ public class ClipRenderer: ObservableObject {
         self.audioBuffer = buffer
         self.audioFrameCount = frameCount
         self.audioSampleRate = sampleRate
+        cache.store(
+            .init(buffer: buffer, frameCount: frameCount, sampleRate: sampleRate),
+            url: url,
+            channel: isolatingChannel
+        )
     }
 
     /// Copies a single channel into a fresh mono buffer, so the generator — which
